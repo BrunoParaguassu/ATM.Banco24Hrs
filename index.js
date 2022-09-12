@@ -48,7 +48,7 @@ function createAccount(){
 function buildAccount(){
     inquirer.prompt([
         {
-            name:'Nome da Conta:',
+            name:'Nome da Conta',
             message:'Digite o nome da sua conta: ',
         }
     ]).then(answer => {
