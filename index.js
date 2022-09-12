@@ -78,7 +78,7 @@ function buildAccount() {
             return
         }
 
-        fs.writeFileSync(`Contas/${nomeDaConta}.json`, '{"Balance": 0}',
+        fs.writeFileSync(`Contas/${nomeDaConta}.json`, '{"balance": 0}',
             function (err) {
                 console.log(err);
             },
@@ -104,7 +104,7 @@ function deposit() {
 
             //Verificar se a conta existe
             if (!checkaccount(nomeDaConta)) {
-                return deposit()
+                return;
             }
 
             inquirer.prompt([
