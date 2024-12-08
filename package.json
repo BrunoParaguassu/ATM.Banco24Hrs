@@ -1,17 +1,21 @@
 {
-  "name": "5_accounts",
+  "name": "atm-banco24hrs",
   "version": "1.0.0",
-  "description": "",
+  "description": "Sistema de caixa eletrônico com funcionalidades bancárias básicas",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "atm",
+    "bank",
+    "nodejs"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "chalk": "^4.1.2",
-    "inquirer": "^8.1.0"
+    "inquirer": "^8.2.4"
   }
 }

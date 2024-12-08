@@ -1,171 +1,163 @@
-//Modulos Externos
 const inquirer = require('inquirer');
 const chalk = require('chalk');
+const { MESSAGES } = require('./src/config/constants');
+const accountService = require('./src/services/accountService');
 
-//Modulos Internos
-const fs = require('fs');
-const { parse } = require('path');
-
-operation()
-
-//função usando o modulo Inquirer para visualização no terminal!
-function operation() {
-    inquirer.prompt([
-        {
-            type: 'list',
-            name: 'action',
-            message: console.log(chalk.bgYellow.green('Bem Vindo! Banco do Brasil ')),
-            choices: [
-                'Desbloquear Cartão',
-                'Criar Conta',
-                'Consultar Saldo',
-                'Deposito',
-                'Sacar',
-                'Sair',
-                'Outras Opções',
-            ]
-        }
-    ])
-        .then((answer) => {
-
-            const action = answer['action']
-
-            if (action === 'Criar Conta') {
-                createAccount()
-            } else if (action === 'Consultar Saldo') {
-
-            } else if (action === 'Deposito') {
-                deposit()
-            } else if (action === 'Sacar') {
-
-            } else if (action === 'Sair') {
-                console.log(chalk.bgBlue.black('Obrigado por usar o Banco do Brasil ! '))
-                process.exit()
+async function operation() {
+    try {
+        const { action } = await inquirer.prompt([
+            {
+                type: 'list',
+                name: 'action',
+                message: chalk.bgYellow.green(MESSAGES.WELCOME),
+                choices: [
+                    'Criar Conta',
+                    'Consultar Saldo',
+                    'Depositar',
+                    'Sacar',
+                    'Extrato',
+                    'Sair'
+                ]
             }
-        })
-        .catch((err) => console.log(err));
+        ]);
+
+        switch (action) {
+            case 'Criar Conta':
+                await createAccount();
+                break;
+            case 'Consultar Saldo':
+                await checkBalance();
+                break;
+            case 'Depositar':
+                await deposit();
+                break;
+            case 'Sacar':
+                await withdraw();
+                break;
+            case 'Extrato':
+                await getStatement();
+                break;
+            case 'Sair':
+                console.log(chalk.bgBlue.black(MESSAGES.GOODBYE));
+                process.exit();
+        }
+    } catch (error) {
+        console.error(chalk.red(error.message));
+        await operation();
+    }
 }
 
-//criando a conta
-
-function createAccount() {
-    console.log(chalk.bgYellow.green('Parabéns por escolher o Banco do Brasil! '));
-    console.log(chalk.green('Defina as opções da sua conta a seguir '));
-
-    buildAccount();
-}
-
-function buildAccount() {
-    inquirer.prompt([
-        {
-            name: 'nomeDaConta',
-            message: 'Digite o nome da sua conta: ',
-        }
-    ]).then(answer => {
-        const nomeDaConta = answer['nomeDaConta'];
-
-        console.info(nomeDaConta);
-
-        if (!fs.existsSync('Contas')) {
-            fs.mkdirSync('Contas');
-        }
-
-        if (fs.existsSync(`Contas/${nomeDaConta}.json`)) {
-            console.log(
-                chalk.bgRed.black('Está conta já existe, escolha outro nome!')
-            )
-            buildAccount()
-            return
-        }
-
-        fs.writeFileSync(`Contas/${nomeDaConta}.json`, '{"balance": 0}',
-            function (err) {
-                console.log(err);
+async function createAccount() {
+    try {
+        const { accountName, pin, confirmPin } = await inquirer.prompt([
+            {
+                name: 'accountName',
+                message: 'Digite o nome da sua conta:',
+                validate: input => input.length >= 3 || 'O nome deve ter pelo menos 3 caracteres'
             },
-        )
-        console.log(chalk.green('Parabéns, sua conta foi criada!'));
-        operation()
-    })
-        .catch((err) => console.log(err))
-}
-
-//Adicionar valor na conta
-
-function deposit() {
-    inquirer.prompt([
-        {
-            name: 'nomeDaConta',
-            message: 'Qual o nome da sua conta ? '
-        }
-    ])
-        .then((answer) => {
-
-            const nomeDaConta = answer['nomeDaConta']
-
-            //Verificar se a conta existe
-            if (!checkaccount(nomeDaConta)) {
-                return;
+            {
+                type: 'password',
+                name: 'pin',
+                message: 'Digite seu PIN (4 dígitos):',
+                validate: input => /^\d{4}$/.test(input) || 'O PIN deve ter 4 dígitos numéricos'
+            },
+            {
+                type: 'password',
+                name: 'confirmPin',
+                message: 'Confirme seu PIN:',
+                validate: (input, answers) => input === answers.pin || 'Os PINs não correspondem'
             }
+        ]);
 
-            inquirer.prompt([
-                {
-                    name: 'Valor',
-                    message: 'Qual valor deseja depositar ? '
-                },
-            ]).then((answer) => {
-
-                const Valor = answer['Valor']
-
-                //Adicionar valor
-                adicionarValor(nomeDaConta, Valor)
-                operation()
-
-            })
-
-                .catch(err => console.log(err));
-
-        })
-        .catch(err => console.log(err))
+        accountService.createAccount(accountName, pin);
+        console.log(chalk.green(MESSAGES.ACCOUNT_CREATED));
+    } catch (error) {
+        console.error(chalk.red(error.message));
+    }
+    await operation();
 }
 
-function checkaccount(nomeDaConta) {
-
-    if (!fs.existsSync(`Contas/${nomeDaConta}.json`)) {
-        console.log(chalk.bgRed.black(`Esta conta não existe, escolha outra conta ! `))
-        return false
+async function checkBalance() {
+    try {
+        const { accountName, pin } = await getAccountCredentials();
+        const balance = accountService.getBalance(accountName, pin);
+        console.log(chalk.green(`Saldo atual: R$ ${balance.toFixed(2)}`));
+    } catch (error) {
+        console.error(chalk.red(error.message));
     }
-    return true
-
+    await operation();
 }
 
-function adicionarValor(nomeDaConta, Valor) {
+async function deposit() {
+    try {
+        const { accountName, pin } = await getAccountCredentials();
+        const { amount } = await inquirer.prompt([
+            {
+                name: 'amount',
+                message: 'Qual valor deseja depositar?',
+                validate: input => !isNaN(input) && parseFloat(input) > 0 || 'Digite um valor válido'
+            }
+        ]);
 
-    const accountData = getaccount(nomeDaConta)
-
-    if (!Valor) {
-        console.log(chalk.bgRed.black('Ocorreu um erro, tente novamente mais tarde !'))
-        return deposit()
+        const newBalance = accountService.deposit(accountName, pin, parseFloat(amount));
+        console.log(chalk.green(`Depósito realizado! Novo saldo: R$ ${newBalance.toFixed(2)}`));
+    } catch (error) {
+        console.error(chalk.red(error.message));
     }
+    await operation();
+}
 
-    accountData.balance = parseFloat(Valor) + parseFloat(accountData.balance)
+async function withdraw() {
+    try {
+        const { accountName, pin } = await getAccountCredentials();
+        const { amount } = await inquirer.prompt([
+            {
+                name: 'amount',
+                message: 'Qual valor deseja sacar?',
+                validate: input => !isNaN(input) && parseFloat(input) > 0 || 'Digite um valor válido'
+            }
+        ]);
 
-    fs.writeFileSync(
+        const newBalance = accountService.withdraw(accountName, pin, parseFloat(amount));
+        console.log(chalk.green(`Saque realizado! Novo saldo: R$ ${newBalance.toFixed(2)}`));
+    } catch (error) {
+        console.error(chalk.red(error.message));
+    }
+    await operation();
+}
 
-        `Contas/${nomeDaConta}.json`,
-        JSON.stringify(accountData),
-        function (err) {
-            console.log(err)
+async function getStatement() {
+    try {
+        const { accountName, pin } = await getAccountCredentials();
+        const transactions = accountService.getTransactionHistory(accountName, pin);
+        
+        console.log(chalk.yellow('\n=== Extrato de Transações ==='));
+        transactions.forEach(transaction => {
+            const color = transaction.type === 'DEPOSITO' ? chalk.green : chalk.red;
+            console.log(color(
+                `${new Date(transaction.date).toLocaleString()}: ${transaction.type} - R$ ${transaction.amount.toFixed(2)}`
+            ));
+        });
+        console.log(chalk.yellow('==========================\n'));
+    } catch (error) {
+        console.error(chalk.red(error.message));
+    }
+    await operation();
+}
+
+async function getAccountCredentials() {
+    return inquirer.prompt([
+        {
+            name: 'accountName',
+            message: 'Digite o nome da conta:'
         },
-    )
-    console.log(chalk.green(`Foi depositado o valor de R$${Valor} na sua conta !`))
+        {
+            type: 'password',
+            name: 'pin',
+            message: 'Digite seu PIN:',
+            validate: input => /^\d{4}$/.test(input) || 'O PIN deve ter 4 dígitos numéricos'
+        }
+    ]);
 }
 
-function getaccount(nomeDaConta) {
-
-    const accountJSON = fs.readFileSync(`Contas/${nomeDaConta}.json`, {
-        encoding: 'utf8',
-        flag: 'r'
-    })
-
-    return JSON.parse(accountJSON)
-}
+operation();
